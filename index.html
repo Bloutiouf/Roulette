@@ -1,0 +1,230 @@
+<!--
+The MIT License (MIT)
+
+Copyright (c) 2014 Jonathan Giroux (Bloutiouf)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+-->
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, user-scalable=no">
+<title>Roulette</title>
+<style>
+body {
+	font-family: Helvetica, Arial, sans-serif;
+	font-size: 600%;
+	height: 100%;
+	margin: 0;
+	overflow: hidden;
+	padding: 0;
+	text-align: center;
+	width: 100%;
+}
+
+a {
+	color: #000;
+}
+
+body > * {
+	height: 100%;
+	left: 0;
+	overflow: hidden;
+	position: absolute;
+	width: 100%;
+}
+
+.noscript {
+	display: inline-table;
+}
+
+.noscript * {
+	display: table-cell;
+	vertical-align: middle;
+}
+
+#items {
+	height: 200%;
+}
+
+#items > * {
+	display: inline-table;
+	height: 25%;
+	width: 100%;
+}
+
+#items > * > * {
+	display: table-cell;
+	vertical-align: middle;
+}
+
+#arrows * {
+	border: 50px solid transparent;
+	height: 0;
+	margin-top: -50px;
+	position: absolute;
+	top: 50%;
+	-webkit-transition: all 1s;
+	transition: all 1s;
+	width: 0;
+}
+
+#arrows .left {
+	border-left: 50px solid #000;
+	left: -50px;
+}
+
+#arrows .right {
+	border-right: 50px solid #000;
+	right: -50px;
+}
+
+#arrows.show .left {
+	left: 0;
+}
+
+#arrows.show .right {
+	right: 0;
+}
+</style>
+</head>
+<body>
+<div class="noscript"><noscript>Please enable JavaScript.</noscript></div>
+<div id="items"></div>
+<div id="arrows">
+<div class="left"></div>
+<div class="right"></div>
+</div>
+<script>
+function cssColor(h) {
+	var s = 1, l = 0.9;
+	
+	function hue2rgb(p, q, t) {
+		if(t < 0) t += 1;
+		if(t > 1) t -= 1;
+		if(t < 1/6) return p + (q - p) * 6 * t;
+		if(t < 1/2) return q;
+		if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+		return p;
+	}
+
+	var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+	var p = 2 * l - q;
+	
+	r = hue2rgb(p, q, h + 1/3);
+	g = hue2rgb(p, q, h);
+	b = hue2rgb(p, q, h - 1/3);
+	
+	return 'rgb(' + Math.floor(r * 255) + ',' + Math.floor(g * 255) + ',' + Math.floor(b * 255) + ')';
+}
+
+if (!Date.now) {
+	Date.now = function now() {
+		return new Date().getTime();
+	};
+}
+
+var choiceFactor = .005;
+var dampingFactor = .0005;
+var speed = .3;
+var speedLimit = .003;
+
+var itemsElement = document.getElementById('items');
+var arrowsElement = document.getElementById('arrows');
+
+var items = window.location.search.substring(1).split('&');
+
+if (items.length < 3) {
+	var item = document.createElement('div');
+	var span = document.createElement('span');
+	var text = document.createTextNode('Please give items as query string.');
+	span.appendChild(text);
+	item.appendChild(span);
+	itemsElement.appendChild(item);
+	
+	var item = document.createElement('div');
+	var a = document.createElement('a');
+	var url = '?tomato&salad&beetroot'
+	a.href = url;
+	var text = document.createTextNode(url);
+	a.appendChild(text);
+	item.appendChild(a);
+	itemsElement.appendChild(item);
+	
+	arrowsElement.style.display = 'none';
+} else {
+	var y = 0;
+	var h = 50;
+	var damping = false;
+	var lastTime = Date.now();
+	
+	for (var i = 0, n = items.length; i < n; ++i) {
+		var item = document.createElement('div');
+		item.style.backgroundColor = cssColor(i / n);
+		
+		var span = document.createElement('span');
+		var text = document.createTextNode(items[i]);
+		span.appendChild(text);
+		item.appendChild(span);
+		itemsElement.appendChild(item);
+	}
+	
+	function update() {
+		requestAnimationFrame(update);
+			
+		var time = Date.now();
+		var dt = time - lastTime;
+		lastTime = time;
+		
+		if (damping)
+			speed *= Math.exp(- dt * dampingFactor);
+			
+		if (speed < speedLimit) {
+			arrowsElement.className = '';
+			y += (-h/2 - y) * (1 - Math.exp(- dt * choiceFactor));
+		} else {
+			y -= speed * dt;
+			if (y <= -h) {
+				y += h;
+				var item = itemsElement.firstChild;
+				itemsElement.removeChild(item);
+				itemsElement.appendChild(item);
+			}
+		}
+		
+		itemsElement.style.top = y + '%';
+	}
+	
+	function eventHandler(event) {
+		event.preventDefault();
+		if (!damping) {
+			damping = true;
+			arrowsElement.className = 'show';
+		}
+	}
+	
+	document.addEventListener('keypress', eventHandler, false);
+	document.addEventListener('click', eventHandler, false);
+	
+	update();
+}
+</script>
+</body>
+</html>
